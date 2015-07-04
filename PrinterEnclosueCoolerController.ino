@@ -1,19 +1,4 @@
 /*********************************************************************
-This is an example for our Monochrome OLEDs based on SSD1306 drivers
-
-  Pick one up today in the adafruit shop!
-  ------> http://www.adafruit.com/category/63_98
-
-This example is for a 128x64 size display using I2C to communicate
-3 pins are required to interface (2 I2C and one reset)
-
-Adafruit invests time and resources providing this open source code, 
-please support Adafruit and open-source hardware by purchasing 
-products from Adafruit!
-
-Written by Limor Fried/Ladyada  for Adafruit Industries.  
-BSD license, check license.txt for more information
-All text above, and the splash screen must be included in any redistribution
 *********************************************************************/
 
 #include <SPI.h>
@@ -209,9 +194,9 @@ void drawHistoryGraph() {
 }
 
 int minimumTemperature() {
-  int min = tempHistory[0];
-  for (int i = 1; i < HISTORY_SIZE; i++) {
-    if (tempHistory[i] < min) {
+  int min = maximumTemperature();
+  for (int i = 0; i < HISTORY_SIZE; i++) {
+    if (tempHistory[i] < min && tempHistory[i] != 0) {
       min = tempHistory[i];
     }
   }
@@ -222,7 +207,7 @@ int minimumTemperature() {
 int maximumTemperature() {
   int max = tempHistory[0];
   for (int i = 1; i < HISTORY_SIZE; i++) {
-    if (tempHistory[i] < max) {
+    if (tempHistory[i] > max) {
       max = tempHistory[i];
     }
   }
