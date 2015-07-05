@@ -13,14 +13,13 @@
 #define OLED_RESET 4
 #define FAN_POWER_PIN 10
 #define FAN_PULSE_PIN 9
-#define FAN_PMW_PIN 3
+#define FAN_PWM_PIN 3
 
 #define FAN_ON_TEMP 25
 #define FAN_MIN_TEMP 30
 #define FAN_MAX_TEMP 40
 
-#define FAN_PMW_MIN 64 // = 25%
-
+#define FAN_PWM_MIN 64 // = 25%
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -38,22 +37,21 @@ byte fanSpeed = 0;
 bool fanPowered = true;
 float temperature = 0;
 
-int tempHistory[HISTORY_SIZE];
+byte speedHistory[HISTORY_SIZE];
 
 void setup()   {                
 
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
   // init done
-  
 
   display.clearDisplay();   // clears the screen and buffer
 
   for (int i = 0; i < HISTORY_SIZE; i++) {
-    tempHistory[i] = 0;
+    speedHistory[i] = 0;
   }
   
   pinMode(FAN_PULSE_PIN, INPUT_PULLUP);
-  pinMode(FAN_PMW_PIN, OUTPUT);
+  pinMode(FAN_PWM_PIN, OUTPUT);
 
   pinMode(FAN_POWER_PIN, OUTPUT);
   digitalWrite(FAN_POWER_PIN, fanPowered);
@@ -68,31 +66,25 @@ void loop() {
   unsigned long pulseDuration = pulseIn(FAN_PULSE_PIN, LOW);
   rpm = 60 * 1000000 / pulseDuration / 4;
   
-  fanSpeed = constrain(map(temperature * 100, FAN_MIN_TEMP * 100, FAN_MAX_TEMP * 100, FAN_PMW_MIN, 255), 0, 255);
-  analogWrite(FAN_PMW_PIN, fanSpeed);
+  fanSpeed = constrain(map(temperature * 100, FAN_MIN_TEMP * 100, FAN_MAX_TEMP * 100, FAN_PWM_MIN, 255), 0, 255);
+  analogWrite(FAN_PWM_PIN, fanSpeed);
   
   fanPowered = temperature >= FAN_ON_TEMP;
   digitalWrite(FAN_POWER_PIN, fanPowered);
   
-  
   if (historyInterval >= HISTORY_INTERVAL*1000) {    
-    addTemperatureToHistory(temperature * 100);
+    addSpeedToHistory(constrain(fanSpeed,FAN_PWM_MIN, 255));
     historyInterval = 0;
   }
   
-  
- 
-  
   updateUI ();
-
 
   delay(500);
 }
 
 void updateUI () {
   display.clearDisplay();
-  
-  
+    
   display.setTextSize(1);
   display.setTextColor(WHITE);
 
@@ -106,7 +98,7 @@ void updateUI () {
   display.setCursor(0,8);
   display.print("FAN: ");
   if (fanPowered) {
-    if (fanSpeed > FAN_PMW_MIN) {
+    if (fanSpeed > FAN_PWM_MIN) {
       display.print(map(fanSpeed, 0, 255, 0, 100));
       display.print("%");
     } else {
@@ -127,32 +119,29 @@ void updateUI () {
   
   // Print Temperature integer
   printRight(String((int) temperature), 3, SCREEN_WIDTH - 12, 2); 
-
  
   drawHistoryGraph();
 
   display.display();
-
 }
 
-void addTemperatureToHistory(byte temp) {
-  byte newTempHistory[HISTORY_SIZE];
+void addSpeedToHistory(byte speed) {
+  byte newSpeedHistory[HISTORY_SIZE];
   
   for (int i = 1; i < HISTORY_SIZE; i++) {
-    newTempHistory[i - 1] = tempHistory[i];
+    newSpeedHistory[i - 1] = speedHistory[i];
   }
   
-  newTempHistory[HISTORY_SIZE - 1] = temp;
+  newSpeedHistory[HISTORY_SIZE - 1] = speed;
   
   for (int i = 0; i < HISTORY_SIZE; i++) {
-    tempHistory[i] = newTempHistory[i];
+    speedHistory[i] = newSpeedHistory[i];
   }
 }
 
 int decimalValue(float value, int multiplier) {
   int integerValue = (int)(value);
   float decimalValue = value - integerValue;
-  
   
   return decimalValue * multiplier;
 }
@@ -162,7 +151,6 @@ void printRight(String text, byte size, byte x, byte y) {
   
   int textSize = size * 5 * stringLength;
   int spaceSize = size * (stringLength - 1);
-  
   
   display.setTextSize(size);
   display.setCursor(x - textSize - spaceSize, y);
@@ -175,44 +163,17 @@ void drawHistoryGraph() {
   
   display.drawRect(0 , yOffset, SCREEN_WIDTH, height, WHITE);
  
-  int min = minimumTemperature();
-  int max = maximumTemperature();
- 
   for (int i = 0; i < HISTORY_SIZE; i++) {
     
-    byte mappedValue = constrain(map(tempHistory[i], min, max, 0, height - 2), 0, height - 2);
+    byte mappedValue = constrain(map(speedHistory[i], 0, 255, 0, height - 2), 0, height - 2);
     
     byte x = i + 1;
     byte startY = yOffset + height - 1;
     byte endY = startY - mappedValue;
     
     display.drawLine(x, startY, x, endY, WHITE);
-    
-    //tempHistory[i] = random(0, 40);
   }
   
-}
-
-int minimumTemperature() {
-  int min = maximumTemperature();
-  for (int i = 0; i < HISTORY_SIZE; i++) {
-    if (tempHistory[i] < min && tempHistory[i] != 0) {
-      min = tempHistory[i];
-    }
-  }
-  
-  return min;
-}
-
-int maximumTemperature() {
-  int max = tempHistory[0];
-  for (int i = 1; i < HISTORY_SIZE; i++) {
-    if (tempHistory[i] > max) {
-      max = tempHistory[i];
-    }
-  }
-  
-  return max;
 }
 
 
